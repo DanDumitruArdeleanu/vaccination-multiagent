@@ -1,5 +1,14 @@
+globals[
+  used-seed                        ;; keeping track of the used seed
+]
+
 to setup
   clear-all
+
+  set used-seed new-seed
+  show used-seed
+  random-seed used-seed
+
   reset-ticks
 end
 

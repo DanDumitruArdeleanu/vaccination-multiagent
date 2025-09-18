@@ -1,10 +1,11 @@
+
 to setup
   clear-all
   reset-ticks
 end
 
 to go
-  t
+  tick
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
