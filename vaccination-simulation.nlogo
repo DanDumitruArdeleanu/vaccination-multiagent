@@ -6,9 +6,11 @@ turtles-own[
   immunity-level                                ;; immunity level of an agent
   belief                                        ;; pro-vaccination or anti-vaccination
   confidence-level                              ;; confidence of an agent in it's own belief
+  home-neighbourhood                            ;; neighbourhood of an agent
 ]
 
 patches-own[
+ neighbourhood-id                               ;; availability of a neighbourhood
 ]
 
 to setup
@@ -27,26 +29,31 @@ to setup
 end
 
 to setup-environment
-  ask patches [set pcolor white]
+  ask patches [
+    set pcolor white
+    set neighbourhood-id nobody
+  ]
 end
 
 to setup-common-area
   ask patches with [abs(pxcor) <= 4 and abs(pycor) <= 4] [
     set pcolor 56
+    set neighbourhood-id nobody
   ]
 end
 
 to setup-neighbourhoods
   let neighbourhoods n-of number-of-neighbourhoods patches
   let all_colours (range 0 140)
+  let length_neighbourhood 2
   let neighbourhood_colours n-of number-of-neighbourhoods
     (filter [colour -> colour != 56] all_colours)
 
   (foreach (sort neighbourhoods) neighbourhood_colours
     [[neighbourhood neighbourhood_colour] ->
       ask patches with [
-        abs(pxcor - [pxcor] of neighbourhood) <= 2 and
-        abs(pycor - [pycor] of neighbourhood) <= 2
+        abs(pxcor - [pxcor] of neighbourhood) <= length_neighbourhood and
+        abs(pycor - [pycor] of neighbourhood) <= length_neighbourhood
       ] [
         set pcolor neighbourhood_colour
       ]
@@ -66,7 +73,6 @@ to setup-people
     if belief = false [set color red]
   ]
 end
-
 
 to go
   if ticks > 100 [
