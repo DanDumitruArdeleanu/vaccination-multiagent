@@ -67,8 +67,35 @@ to setup-people
   ]
 end
 
+
 to go
+  if ticks > 100 [
+    stop
+  ]
+
+  ask turtles[
+    move
+  ]
+
   tick
+end
+
+to move
+  wiggle
+  forward 1
+end
+
+to wiggle
+  right random 90
+  left random 90
+end
+
+to-report pro-count
+  report count turtles with [color = blue]
+end
+
+to-report anti-count
+  report count turtles with [color = red]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -161,6 +188,25 @@ number-of-neighbourhoods
 1
 NIL
 HORIZONTAL
+
+PLOT
+679
+225
+965
+450
+Pro vs Anti Belief
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -13345367 true "" "plot pro-count"
+"pen-1" 1.0 0 -2674135 true "" "plot anti-count"
 
 @#$#@#$#@
 ## WHAT IS IT?
