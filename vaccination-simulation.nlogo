@@ -1,5 +1,14 @@
 globals[
-  used-seed                        ;; keeping track of the used seed
+  used-seed                                     ;; keeping track of the used seed
+]
+
+turtles-own[
+  immunity-level                                ;; immunity level of an agent
+  belief                                        ;; pro-vaccination or anti-vaccination
+  confidence-level                              ;; confidence of an agent in it's own belief
+]
+
+patches-own[
 ]
 
 to setup
@@ -9,7 +18,53 @@ to setup
   show used-seed
   random-seed used-seed
 
+  setup-environment
+  setup-common-area
+  setup-neighbourhoods
+  setup-people
+
   reset-ticks
+end
+
+to setup-environment
+  ask patches [set pcolor white]
+end
+
+to setup-common-area
+  ask patches with [abs(pxcor) <= 4 and abs(pycor) <= 4] [
+    set pcolor 56
+  ]
+end
+
+to setup-neighbourhoods
+  let neighbourhoods n-of number-of-neighbourhoods patches
+  let all_colours (range 0 140)
+  let neighbourhood_colours n-of number-of-neighbourhoods
+    (filter [colour -> colour != 56] all_colours)
+
+  (foreach (sort neighbourhoods) neighbourhood_colours
+    [[neighbourhood neighbourhood_colour] ->
+      ask patches with [
+        abs(pxcor - [pxcor] of neighbourhood) <= 2 and
+        abs(pycor - [pycor] of neighbourhood) <= 2
+      ] [
+        set pcolor neighbourhood_colour
+      ]
+    ])
+end
+
+to setup-people
+  create-turtles number-people-per-hood [
+    setxy random-xcor random-ycor
+    set shape "person"
+
+    set immunity-level random 101               ;; 0 - 100
+    set belief one-of [true false]              ;; true = pro / false = anti
+    set confidence-level random 101             ;; 0 - 100
+
+    if belief = true [set color blue]
+    if belief = false [set color red]
+  ]
 end
 
 to go
@@ -76,6 +131,36 @@ NIL
 NIL
 NIL
 0
+
+SLIDER
+22
+101
+200
+134
+number-people-per-hood
+number-people-per-hood
+0
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+149
+201
+182
+number-of-neighbourhoods
+number-of-neighbourhoods
+0
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
