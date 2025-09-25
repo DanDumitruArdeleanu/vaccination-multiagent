@@ -9,13 +9,17 @@ globals[
 turtles-own[
   immunity-level                                ;; immunity level of an agent
   belief                                        ;; pro-vaccination or anti-vaccination
-  confidence-level                              ;; confidence of an agent in it's own belief
-  home-neighbourhood                            ;; neighbourhood of an agent
+  confidence-level                              ;; confidence of an agent in its own belief
+  home-neighbourhood                            ;; patch of an agent's home neighbourhood
 ]
 
 patches-own[
- neighbourhood-id                               ;; availability of a neighbourhood
+  neighbourhood-id                               ;; ID of a neighbourhood
 ]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP PROCEDURES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
   clear-all
@@ -72,6 +76,7 @@ to setup-neighbourhoods
       set neighbourhoods lput candidate neighbourhoods
     ]
   ]
+
   let all_colours (range 0 140)
   let length_neighbourhood 2
   let neighbourhood_colours n-of number-of-neighbourhoods
@@ -85,6 +90,7 @@ to setup-neighbourhoods
     ]
     ask hood-patches [
       set pcolor neighbourhood_colour
+      set neighbourhood-id neighbourhood
     ]
 
     let center-x [pxcor] of neighbourhood
@@ -104,22 +110,31 @@ to setup-neighbourhoods
   ])
 end
 
-
 to setup-people
-  create-people number-people-per-hood [
-    setxy random-xcor random-ycor
-    set shape "person"
+  let all_neighbourhoods patches with [neighbourhood-id != nobody]
+  foreach sort (remove-duplicates [neighbourhood-id] of all_neighbourhoods) [
+    hood ->
+    let hood-patches patches with [neighbourhood-id = hood]
+    repeat number-people-per-hood [
+      create-people 1 [
+        move-to one-of hood-patches
+        set home-neighbourhood one-of hood-patches
 
-    set immunity-level random 101               ;; 0 - 100
-    set belief one-of [true false]              ;; true = pro / false = anti
-    set confidence-level random 101             ;; 0 - 100
+        set shape "person"
+        set immunity-level random 101
+        set belief one-of [true false]
+        set confidence-level random 101
 
-    if belief = true [set color blue]
-    if belief = false [set color red]
+        if belief = true [set color blue]
+        if belief = false [set color red]
+      ]
+    ]
   ]
 end
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; GO PROCEDURES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
   if ticks > 100 [
@@ -136,12 +151,31 @@ end
 to move
   wiggle
   forward 1
+
+  let others-on-patch other people-here
+  if any? others-on-patch [
+    ifelse random 2 = 0 [
+      set belief true
+      ask others-on-patch [set belief true]
+      set color blue
+      ask others-on-patch [set color blue]
+    ] [
+      set belief false
+      ask others-on-patch [set belief false]
+      set color red
+      ask others-on-patch [set color red]
+    ]
+  ]
 end
 
 to wiggle
   right random 90
   left random 90
 end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; REPORTS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to-report pro-count
   report count turtles with [color = blue]
@@ -172,8 +206,8 @@ GRAPHICS-WINDOW
 16
 -16
 16
-0
-0
+1
+1
 1
 ticks
 30.0
@@ -221,7 +255,7 @@ number-people-per-hood
 number-people-per-hood
 0
 5
-5.0
+2.0
 1
 1
 NIL
