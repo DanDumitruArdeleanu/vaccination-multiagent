@@ -1,17 +1,27 @@
+breed [people person]
+breed [trees tree]
+breed [houses house]
+
 globals[
   used-seed                                     ;; keeping track of the used seed
+  neighbourhood-meeting-count                   ;; number of neighbourhoods to send a person to the common area
 ]
 
 turtles-own[
   immunity-level                                ;; immunity level of an agent
   belief                                        ;; pro-vaccination or anti-vaccination
-  confidence-level                              ;; confidence of an agent in it's own belief
-  home-neighbourhood                            ;; neighbourhood of an agent
+  updated-belief                                ;; changed belief of a person during common area meeting
+  confidence-level                              ;; confidence of an agent in its own belief
+  home-neighbourhood                            ;; patch of an agent's home neighbourhood
 ]
 
 patches-own[
- neighbourhood-id                               ;; availability of a neighbourhood
+  neighbourhood-id                               ;; ID of a neighbourhood
 ]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP PROCEDURES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
   clear-all
@@ -24,6 +34,10 @@ to setup
   setup-common-area
   setup-neighbourhoods
   setup-people
+
+  if neighbourhood-meeting-count <= 0 [
+    set neighbourhood-meeting-count number-of-neighbourhoods
+  ]
 
   reset-ticks
 end
@@ -40,46 +54,104 @@ to setup-common-area
     set pcolor 56
     set neighbourhood-id nobody
   ]
+
+  create-trees 20 [
+    set shape "tree"
+    set size 1
+    set color one-of [green lime]
+    setxy random-xcor random-ycor
+    while [not (abs(xcor) <= 4 and abs(ycor) <= 4)] [
+      setxy random-xcor random-ycor
+    ]
+  ]
 end
 
 to setup-neighbourhoods
-  let neighbourhoods n-of number-of-neighbourhoods patches
+  let neighbourhoods []
+  while [length neighbourhoods < number-of-neighbourhoods] [
+    let candidate one-of patches
+    let far-enough? true
+    ask candidate [
+      foreach neighbourhoods [n ->
+        if distance n <= 2 * 2 + 1 [
+          set far-enough? false
+        ]
+      ]
+    ]
+    if far-enough? [
+      set neighbourhoods lput candidate neighbourhoods
+    ]
+  ]
+
   let all_colours (range 0 140)
   let length_neighbourhood 2
   let neighbourhood_colours n-of number-of-neighbourhoods
     (filter [colour -> colour != 56] all_colours)
 
   (foreach (sort neighbourhoods) neighbourhood_colours
-    [[neighbourhood neighbourhood_colour] ->
-      ask patches with [
-        abs(pxcor - [pxcor] of neighbourhood) <= length_neighbourhood and
-        abs(pycor - [pycor] of neighbourhood) <= length_neighbourhood
-      ] [
-        set pcolor neighbourhood_colour
+  [[neighbourhood neighbourhood_colour] ->
+    let hood-patches patches with [
+      abs(pxcor - [pxcor] of neighbourhood) <= length_neighbourhood and
+      abs(pycor - [pycor] of neighbourhood) <= length_neighbourhood
+    ]
+    ask hood-patches [
+      set pcolor neighbourhood_colour
+      set neighbourhood-id neighbourhood
+    ]
+
+    let center-x [pxcor] of neighbourhood
+    let center-y [pycor] of neighbourhood
+
+    foreach n-values 9 [i -> i] [
+      i ->
+      create-houses 1 [
+        set shape "house"
+        set size 1.2
+        set color brown
+        let offset-x ((i mod 3) - 1) * 2
+        let offset-y ((floor (i / 3)) - 1) * 2
+        setxy (center-x + offset-x) (center-y + offset-y)
       ]
-    ])
+    ]
+  ])
 end
 
 to setup-people
-  create-turtles number-people-per-hood [
-    setxy random-xcor random-ycor
-    set shape "person"
+  let all_neighbourhoods patches with [neighbourhood-id != nobody]
+  foreach sort (remove-duplicates [neighbourhood-id] of all_neighbourhoods) [
+    hood ->
+    let hood-patches patches with [neighbourhood-id = hood]
+    repeat number-people-per-hood [
+      create-people 1 [
+        move-to one-of hood-patches
+        set home-neighbourhood one-of hood-patches
 
-    set immunity-level random 101               ;; 0 - 100
-    set belief one-of [true false]              ;; true = pro / false = anti
-    set confidence-level random 101             ;; 0 - 100
+        set shape "person"
+        set immunity-level random 101
+        set belief one-of [true false]
+        set confidence-level random 101
 
-    if belief = true [set color blue]
-    if belief = false [set color red]
+        if belief = true [set color blue]
+        if belief = false [set color red]
+      ]
+    ]
   ]
 end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; GO PROCEDURES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to go
   if ticks > 100 [
     stop
   ]
 
-  ask turtles[
+  if (ticks > 0) and (ticks mod meeting-interval = 0)[
+   create-meeting
+  ]
+
+  ask people[
     move
   ]
 
@@ -95,6 +167,54 @@ to wiggle
   right random 90
   left random 90
 end
+
+to create-meeting
+  let hood-seeds remove-duplicates [neighbourhood-id] of patches with [neighbourhood-id != nobody]
+  if empty? hood-seeds [ stop ]
+
+  let n min (list neighbourhood-meeting-count length hood-seeds)
+  let selected-hoods n-of n hood-seeds
+
+  let visitors no-turtles
+  foreach selected-hoods [ hood ->
+    let cand people with [[neighbourhood-id] of home-neighbourhood = hood]
+    if any? cand [
+      set visitors (turtle-set visitors one-of cand)
+    ]
+  ]
+  if not any? visitors [ stop ]
+
+  let common patches with [abs(pxcor) <= 4 and abs(pycor) <= 4]
+  ask visitors [ move-to one-of common ]
+
+  ask visitors [
+    let others visitors with [self != myself]
+    ifelse any? others [
+      let opposing count others with [belief != [belief] of myself]
+      let share opposing / count others
+      let threshold 0.5 + (confidence-level / 200)
+      set updated-belief ifelse-value (share >= threshold) [not belief] [belief]
+    ] [
+      set updated-belief belief
+    ]
+  ]
+
+  ask visitors [
+    if updated-belief != belief [
+      set belief updated-belief
+      ifelse belief [ set color blue ] [ set color red ]
+    ]
+  ]
+
+  ask visitors [
+    let home-id [neighbourhood-id] of home-neighbourhood
+    move-to one-of patches with [neighbourhood-id = home-id]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; REPORTS
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to-report pro-count
   report count turtles with [color = blue]
@@ -213,6 +333,21 @@ false
 PENS
 "default" 1.0 0 -13345367 true "" "plot pro-count"
 "pen-1" 1.0 0 -2674135 true "" "plot anti-count"
+
+SLIDER
+28
+190
+200
+223
+meeting-interval
+meeting-interval
+5
+50
+5.0
+5
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
